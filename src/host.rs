@@ -120,6 +120,7 @@ fn region_alias(output: &mut dyn Write, name: &str, placement: Memory) -> io::Re
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FlashOpts {
     size: usize,
+    offset: usize,
     flexspi: FlexSpi,
 }
 
@@ -335,6 +336,30 @@ impl RuntimeBuilder {
             heap_size: EnvOverride::new(0),
             flash_opts: Some(FlashOpts {
                 size: flash_size,
+                offset: 0,
+                flexspi: FlexSpi::family_default(family),
+            }),
+            linker_script_name: DEFAULT_LINKER_SCRIPT_NAME.into(),
+        }
+    }
+
+    pub fn from_flexspi_at_offset(family: Family, flash_size: usize, offset: usize) -> Self {
+        Self {
+            family,
+            flexram_banks: family.default_flexram_banks(),
+            text: Memory::Itcm,
+            rodata: Memory::Ocram,
+            data: Memory::Ocram,
+            vectors: Memory::Dtcm,
+            bss: Memory::Ocram,
+            uninit: Memory::Ocram,
+            stack: Memory::Dtcm,
+            stack_size: EnvOverride::new(8 * 1024),
+            heap: Memory::Dtcm,
+            heap_size: EnvOverride::new(0),
+            flash_opts: Some(FlashOpts {
+                size: flash_size,
+                offset,
                 flexspi: FlexSpi::family_default(family),
             }),
             linker_script_name: DEFAULT_LINKER_SCRIPT_NAME.into(),
@@ -687,6 +712,7 @@ fn write_flash_memory_map(
         flash_opts
             .flexspi
             .start_address(family)
+            .map(|address| address + flash_opts.offset as u32)
             .expect("Already checked"),
         flash_opts.size
     )?;
